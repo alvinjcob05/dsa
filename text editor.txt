@@ -1,0 +1,181 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_TEXT_LENGTH 1000
+#define FILE_NAME "text_data.txt"
+
+// Define the stack node structure
+typedef struct StackNode {
+    char character;
+    struct StackNode *next;
+} StackNode;
+
+// Function to create a new stack node
+StackNode* createNode(char character) {
+    StackNode *newNode = (StackNode*)malloc(sizeof(StackNode));
+    if (!newNode) {
+        printf("Memory allocation error!\n");
+        exit(1);  // Exit on memory allocation failure
+    }
+    newNode->character = character;
+    newNode->next = NULL;
+    return newNode;
+}
+
+// Push a character onto the stack
+void push(StackNode **top, char character) {
+    StackNode *newNode = createNode(character);
+    newNode->next = *top;
+    *top = newNode;
+}
+
+// Pop a character from the stack
+char pop(StackNode **top) {
+    if (*top == NULL) {
+        return '\0';  // Return NULL character if stack is empty
+    }
+    StackNode *temp = *top;
+    *top = (*top)->next;
+    char character = temp->character;
+    free(temp);
+    return character;
+}
+
+// Function to display the menu
+void displayMenu() {
+    printf("\nMenu:\n");
+    printf("1. Enter Text\n");
+    printf("2. Undo Last Action\n");
+    printf("3. Display Current Text\n");
+    printf("4. Save Text to File\n");
+    printf("5. Load Text from File\n");
+    printf("6. Quit\n");
+    printf("Enter your choice: ");
+}
+
+// Function to print the current text
+void printText(const char *text) {
+    if (text[0] == '\0') {
+        printf("No text to display.\n");
+    } else {
+        printf("Current Text: %s\n", text);
+    }
+}
+
+// Function to save current text to a file
+void saveTextToFile(const char *text) {
+    FILE *file = fopen(FILE_NAME, "w");
+    if (file == NULL) {
+        printf("Error opening file for writing.\n");
+        return;
+    }
+    fprintf(file, "%s", text);
+    fclose(file);
+    printf("Text saved to %s\n", FILE_NAME);
+}
+
+// Function to load text from a file
+void loadTextFromFile(char *text, StackNode **undoStack, int *textLength) {
+    FILE *file = fopen(FILE_NAME, "r");
+    if (file == NULL) {
+        printf("Error opening file for reading.\n");
+        return;
+    }
+
+    char ch;
+    *textLength = 0;
+    while ((ch = fgetc(file)) != EOF) {
+        if (*textLength < MAX_TEXT_LENGTH - 1) {
+            text[(*textLength)++] = ch;
+            text[*textLength] = '\0';  // Null-terminate the string
+            push(undoStack, ch);
+        }
+    }
+    fclose(file);
+    printf("Text loaded from %s\n", FILE_NAME);
+}
+
+int main() {
+    StackNode *undoStack = NULL;
+    char *text = (char*)malloc(MAX_TEXT_LENGTH * sizeof(char));
+    if (!text) {
+        printf("Memory allocation error!\n");
+        return 1;
+    }
+    text[0] = '\0';  // Initialize the text as an empty string
+    int textLength = 0;
+    int choice;
+    char input[MAX_TEXT_LENGTH];
+
+    printf("Simple Text Editor with Undo and File I/O Features\n");
+
+    while (1) {
+        displayMenu();
+        if (scanf("%d", &choice) != 1) {
+            printf("Invalid input. Please enter a number.\n");
+            while (getchar() != '\n');  // clear input buffer
+            continue;
+        }
+
+        switch (choice) {
+            case 1:
+                printf("Enter text: ");
+                getchar();  // To consume the newline character left by previous scanf
+                if (fgets(input, sizeof(input), stdin) != NULL) {
+                    input[strcspn(input, "\n")] = '\0';  // Remove the newline character
+                    int i = 0;
+                    while (input[i] != '\0' && textLength < MAX_TEXT_LENGTH - 1) {
+                        text[textLength++] = input[i];
+                        text[textLength] = '\0';  // Null-terminate the string
+                        push(&undoStack, input[i]);
+                        i++;
+                    }
+                } else {
+                    printf("Error reading input.\n");
+                }
+                break;
+
+            case 2:
+                if (textLength > 0) {
+                    // Undo the last action by removing the last character
+                    char undoneChar = pop(&undoStack);
+                    if (undoneChar != '\0') {
+                        text[--textLength] = '\0';
+                        printf("Undid last character: '%c'\n", undoneChar);
+                    }
+                } else {
+                    printf("Nothing to undo.\n");
+                }
+                break;
+
+            case 3:
+                printText(text);
+                break;
+
+            case 4:
+                saveTextToFile(text);
+                break;
+
+            case 5:
+                loadTextFromFile(text, &undoStack, &textLength);
+                break;
+
+            case 6:
+                printf("Exiting the text editor.\n");
+                free(text);
+                // Free the undo stack
+                while (undoStack != NULL) {
+                    pop(&undoStack);
+                }
+                return 0;
+
+            default:
+                printf("Invalid choice! Please try again.\n");
+                printf("Quitting...");
+                return 0;
+        }
+    }
+
+    return 0;
+}
